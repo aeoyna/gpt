@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>OpenStreetMapに位置を表示</title>
+<title>OpenStreetMapにバッチを表示</title>
 <style>
     #mapDiv {width: 90%; height: 100vh;}
     #accuracyDiv {
@@ -23,35 +23,55 @@
 <div id="txt">ここにデータを表示</div>
 <p><a href="./gacha.html">>>ガチャを引く</a></p>
 <div id="mapDiv"></div><!--地図を置くdiv要素-->
-<img id="getImg" src="" hidden>                     <!-- ★捕獲したバッチを表示するimg要素 -->
-<canvas id="cap" width="300" height="60"></canvas>  <!-- ★捕獲済バッチを入れるcanvas要素 -->
 <div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
 
-var batch = [];                                     // ★バッチの情報を入れる変数
-var captured = [];                                  // ★バッチを捕獲済みか否かを入れる変数
-loadBatch();                                        // ★バッチの情報を読み込む
-var getImg = document.getElementById("getImg");     // ★img要素の取得
-var canvas = document.getElementById("cap");        // ★捕獲済バッチを入れるcanvas要素の取得
-var context = canvas.getContext("2d");              // ★contextの取得
-context.fillStyle = "rgb(153, 217, 234)";           // ★塗りつぶす色をターコイズにする
-context.fillRect(0, 0, 300, 60);                    // ★canvasを塗りつぶす
-
-// ポイントをローカルストレージに初期設定
-if (localStorage.getItem('points') === null) {
-    localStorage.setItem('points', '100');  // 初期ポイントを100に設定
-}
-let points = parseFloat(localStorage.getItem('points'));
-let totalDistance = 0;
+let batch = []; // バッチの情報を格納する配列
 let map, marker;
 let previousLat, previousLng;
+let totalDistance = 0;
+let points = 100; // 初期ポイント
+const RADIUS = 20; // 捕獲の距離（メートル）
+
+// ポイントのローカルストレージ初期設定
+if (localStorage.getItem('points') === null) {
+    localStorage.setItem('points', points);
+} else {
+    points = parseFloat(localStorage.getItem('points'));
+}
 
 function updateDisplay() {
     document.getElementById("txt").innerHTML = 
-        "累計移動距離: " + totalDistance.toFixed(2) + " km<br>" +
-        "ポイント: " + points.toFixed(2) + "pt";
+        `累計移動距離: ${totalDistance.toFixed(2)} km<br>` +
+        `ポイント: ${points.toFixed(2)} pt`;
+}
+
+// バッチを地図上に配置する関数
+function placeBatch() {
+    batch.forEach((item, index) => {
+        const icon = L.icon({
+            iconUrl: item.img, // バッチ画像（.jpgも対応可能）
+            iconSize: [60, 60] // アイコンサイズ
+        });
+
+        const batchMarker = L.marker([item.lat, item.lng], { icon }).addTo(map);
+        batchMarker.bindPopup(`バッチ ${index + 1}`).openPopup();
+
+        // 捕獲判定
+        batchMarker.on('click', () => {
+            const distance = calculateDistance(previousLat, previousLng, item.lat, item.lng);
+            if (distance <= RADIUS) {
+                alert(`バッチ ${index + 1} を捕獲しました！`);
+                points += 10; // 捕獲時にポイント追加
+                localStorage.setItem('points', points);
+                updateDisplay();
+            } else {
+                alert("バッチが遠すぎます。近づいてください！");
+            }
+        });
+    });
 }
 
 // 距離計算関数 (緯度経度から距離を求める)
@@ -63,7 +83,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
               Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
               Math.sin(dLng / 2) * Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c * 1000; // 距離 (m)
+    return R * c * 1000; // 距離 (メートル)
 }
 
 // 地図初期設定と現在地の取得
@@ -87,9 +107,12 @@ function initMap() {
 
         // 緯度、経度、誤差を表示
         document.getElementById("accuracyDiv").innerHTML = 
-            "緯度: " + lat.toFixed(6) + "<br>" +
-            "経度: " + lng.toFixed(6) + "<br>" +
-            "誤差: " + accuracy.toFixed(2) + " m";
+            `緯度: ${lat.toFixed(6)}<br>` +
+            `経度: ${lng.toFixed(6)}<br>` +
+            `誤差: ${accuracy.toFixed(2)} m`;
+
+        // バッチを地図上に配置
+        placeBatch();
 
         // 現在地の追跡
         navigator.geolocation.watchPosition(updatePosition);
@@ -100,79 +123,34 @@ function initMap() {
 function updatePosition(position) {
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
-    const accuracy = position.coords.accuracy;
 
-    // 現在位置マーカーの更新
-    if (marker) {
-        map.removeLayer(marker);
-    }
-    marker = L.marker([lat, lng]).addTo(map);
-
-    // 累計移動距離とポイントを計算
     const distance = calculateDistance(previousLat, previousLng, lat, lng);
-    totalDistance += distance / 1000;  // キロメートルに変換
-    points += distance / 0.012;
-    localStorage.setItem('points', points.toFixed(2));
+    totalDistance += distance / 1000; // キロメートルに変換
+    points += distance / 0.012; // 距離に応じてポイントを追加
+    localStorage.setItem('points', points);
 
-    // 地図を現在地に移動
-    map.setView([lat, lng]);
-
-    // 表示更新
-    updateDisplay();
-
-    // 緯度、経度、誤差表示を更新
-    document.getElementById("accuracyDiv").innerHTML = 
-        "緯度: " + lat.toFixed(6) + "<br>" +
-        "経度: " + lng.toFixed(6) + "<br>" +
-        "誤差: " + accuracy.toFixed(2) + " m";
-
-    // 前回の位置を現在の位置に更新
     previousLat = lat;
     previousLng = lng;
+
+    updateDisplay();
+    map.setView([lat, lng]);
 }
 
-// ★バッチの情報を読み込む loadBatch 関数
+// バッチデータを読み込む関数
 function loadBatch() {
-    var req = new XMLHttpRequest();                 // サーバのファイルを読む XMLHttpRequest
-    req.addEventListener("readystatechange", () => {        // 準備状態に変化があった時の処理
-        if(req.readyState === 4 && req.status === 200) {    // データ受信が正常に完了したら
-            batch = JSON.parse(req.responseText);          // 読み込んだJSONデータを整形してバッチデータに入れる
+    const req = new XMLHttpRequest();
+    req.addEventListener("readystatechange", () => {
+        if (req.readyState === 4 && req.status === 200) {
+            batch = JSON.parse(req.responseText);
+            placeBatch(); // データが読み込まれた後に実行
         }
     });
-    req.open("GET", "batch.json");               // リクエストを設定
-    req.send();                                     // リクエストを送る
+    req.open("GET", "batch.json");
+    req.send();
 }
 
-// ★バッチを地図上に配置する placeBatch 関数
-function placeBatch() {
-    var batchMark = [];                           // バッチマーカーの配列
-    for(var i = 0; i < batch.length; i++) {       // 全てのバッチについて
-        const lat = batch[i].lat;
-        const lng = batch[i].lng;
-        const img = batch[i].img;
-
-        L.marker([lat, lng], {
-            icon: L.icon({
-                iconUrl: img,
-                iconSize: [60, 60]
-            })
-        }).addTo(map);
-        captured[i] = false;                      // 捕獲済み状態を全てfalseにする
-    }
-}
-
-// ★自分とバッチとの距離を計算する calcDistance 関数
-function calcDistance(lat, lng) {
-    for (var i = 0; i < batch.length; i++) {
-        const distance = calculateDistance(lat, lng, batch[i].lat, batch[i].lng);
-        if (distance < 20 && !captured[i]) {
-            captured[i] = true;
-            getImg.src = batch[i].img; 
-            context.drawImage(getImg, i * 60, 0, 60, 60);
-        }
-    }
-}
-
+// 地図の初期化とデータの読み込みを実行
+loadBatch();
 initMap();
 updateDisplay();
 
