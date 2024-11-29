@@ -15,7 +15,6 @@
         border-radius: 5px;
         font-size: 14px;
     }
-
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
@@ -23,11 +22,23 @@
 <body>
 <div id="txt">ここにデータを表示</div>
 <p><a href="./gacha.html">>>ガチャを引く</a></p>
-<div id="mapDiv"></div>
+<div id="mapDiv"></div><!--地図を置くdiv要素-->
+<img id="getImg" src="" hidden>                     <!-- ★捕獲した人魚を表示するimg要素 -->
+<canvas id="cap" width="300" height="60"></canvas>  <!-- ★捕獲済人魚を入れるcanvas要素 -->
 <div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
+
+var batch = [];                                     // ★人魚の情報を入れる変数
+var captured = [];                                  // ★人魚を捕獲済みか否かを入れる変数
+loadBatch();                                        // ★人魚の情報を読み込む
+var getImg = document.getElementById("getImg");     // ★img要素の取得
+var canvas = document.getElementById("cap");        // ★捕獲済人魚を入れるcanvas要素の取得
+var context = canvas.getContext("2d");              // ★contextの取得
+context.fillStyle = "rgb(153, 217, 234)";           // ★塗りつぶす色をターコイズにする
+context.fillRect(0, 0, 300, 60);                    // ★canvasを塗りつぶす
+
 // ポイントをローカルストレージに初期設定
 if (localStorage.getItem('points') === null) {
     localStorage.setItem('points', '100');  // 初期ポイントを100に設定
@@ -36,7 +47,6 @@ let points = parseFloat(localStorage.getItem('points'));
 let totalDistance = 0;
 let map, marker;
 let previousLat, previousLng;
-let hasAwardedPoints = false;  // ポイント付与フラグ
 
 function updateDisplay() {
     document.getElementById("txt").innerHTML = 
@@ -81,15 +91,10 @@ function initMap() {
             "経度: " + lng.toFixed(6) + "<br>" +
             "誤差: " + accuracy.toFixed(2) + " m";
 
-        // 特定の地点にカスタムマーカーを追加
-        addCustomMarker();
-
         // 現在地の追跡
         navigator.geolocation.watchPosition(updatePosition);
     });
 }
-
-
 
 // 位置更新処理
 function updatePosition(position) {
@@ -121,14 +126,56 @@ function updatePosition(position) {
         "経度: " + lng.toFixed(6) + "<br>" +
         "誤差: " + accuracy.toFixed(2) + " m";
 
-
     // 前回の位置を現在の位置に更新
     previousLat = lat;
     previousLng = lng;
 }
 
+// ★人魚の情報を読み込む loadBatch 関数
+function loadBatch() {
+    var req = new XMLHttpRequest();                 // サーバのファイルを読む XMLHttpRequest
+    req.addEventListener("readystatechange", () => {        // 準備状態に変化があった時の処理
+        if(req.readyState === 4 && req.status === 200) {    // データ受信が正常に完了したら
+            batch = JSON.parse(req.responseText);          // 読み込んだJSONデータを整形して人魚データに入れる
+        }
+    });
+    req.open("GET", "batch.json");               // リクエストを設定
+    req.send();                                     // リクエストを送る
+}
+
+// ★人魚を地図上に配置する placeBatch 関数
+function placeBatch() {
+    var batchMark = [];                           // 人魚マーカーの配列
+    for(var i = 0; i < batch.length; i++) {       // 全ての人魚について
+        const lat = batch[i].lat;
+        const lng = batch[i].lng;
+        const img = batch[i].img;
+
+        L.marker([lat, lng], {
+            icon: L.icon({
+                iconUrl: img,
+                iconSize: [60, 60]
+            })
+        }).addTo(map);
+        captured[i] = false;                      // 捕獲済み状態を全てfalseにする
+    }
+}
+
+// ★自分と人魚との距離を計算する calcDistance 関数
+function calcDistance(lat, lng) {
+    for (var i = 0; i < batch.length; i++) {
+        const distance = calculateDistance(lat, lng, batch[i].lat, batch[i].lng);
+        if (distance < 20 && !captured[i]) {
+            captured[i] = true;
+            getImg.src = batch[i].img; 
+            context.drawImage(getImg, i * 60, 0, 60, 60);
+        }
+    }
+}
+
 initMap();
 updateDisplay();
+
 </script>
 </body>
 </html>
