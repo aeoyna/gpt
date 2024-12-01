@@ -142,7 +142,7 @@ function loadBatch() {
     req.addEventListener("readystatechange", () => {
         if (req.readyState === 4 && req.status === 200) {
             batch = JSON.parse(req.responseText);
-            placeBatch(); // データが読み込まれた後に実行
+            placeBatch(); 
         }
     });
     req.open("GET", "batch.json");
