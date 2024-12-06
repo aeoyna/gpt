@@ -1,175 +1,176 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenStreetMapにバッチを表示</title>
-<style>
-    #mapDiv { width: 90%; height: 100vh; }
-    #accuracyDiv {
-        position: absolute;
-        bottom: 10px;
-        right: 10px;
-        background: rgba(255, 255, 255, 0.8);
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 14px;
-    }
-    #infoDiv {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: rgba(255, 255, 255, 0.8);
-        padding: 10px;
-        border-radius: 5px;
-        font-size: 14px;
-    }
-</style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>OpenStreetMapにバッチを表示</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        #mapDiv {
+            width: 100%;
+            height: 100vh;
+        }
+        #infoDiv {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 1000; /* 地図の上に表示 */
+        }
+        #accuracyDiv {
+            margin-top: 10px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 
 <body>
-<div id="infoDiv">
-    <div>累計移動距離: <span id="totalDistance">0.00</span> km</div>
-    <div>ポイント: <span id="points">100.00</span> pt</div>
-</div>
-<div id="txt">ここにデータを表示</div>
-<p><a href="./gacha.html">>>ガチャを引く</a></p>
-<p><button id="logoutBtn">ログアウト</button></p>
-<div id="mapDiv"></div><!--地図を置くdiv要素-->
-<div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
+    <div id="infoDiv">
+        <div id="txt">累計移動距離: 0.00 km<br>ポイント: 100 pt</div>
+        <p><a href="./gacha.html">>>ガチャを引く</a></p>
+        <p><button id="logoutBtn">ログアウト</button></p>
+        <div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
+    </div>
+    <div id="mapDiv"></div><!-- 地図を置くdiv要素 -->
 
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<script>
-    // ログイン状態を確認
-    const isLoggedIn = localStorage.getItem('loggedIn');
-    if (!isLoggedIn) {
-        alert("ログインが必要です。ログインページに移動します。");
-        window.location.href = "quiz.html";
-    }
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        // ログイン状態を確認
+        const isLoggedIn = localStorage.getItem('loggedIn');
+        if (!isLoggedIn) {
+            alert("ログインが必要です。ログインページに移動します。");
+            window.location.href = "quiz.html";
+        }
 
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-        localStorage.removeItem('loggedIn');
-        alert("ログアウトしました。");
-        window.location.href = "quiz.html";
-    });
-
-    let batch = []; // バッチの情報を格納する配列
-    let map, marker;
-    let previousLat, previousLng;
-    let totalDistance = 0;
-    let points = 100; // 初期ポイント
-    const RADIUS = 20; // 捕獲の距離（メートル）
-
-    // ポイントのローカルストレージ初期設定
-    if (localStorage.getItem('points') === null) {
-        localStorage.setItem('points', points);
-    } else {
-        points = parseFloat(localStorage.getItem('points'));
-    }
-
-    function updateDisplay() {
-        document.getElementById("totalDistance").innerText = totalDistance.toFixed(2);
-        document.getElementById("points").innerText = points.toFixed(2);
-    }
-
-    // バッチを地図上に配置する関数
-    function placeBatch() {
-        batch.forEach((item, index) => {
-            const icon = L.icon({
-                iconUrl: item.img,
-                iconSize: [60, 60]
-            });
-
-            const batchMarker = L.marker([item.lat, item.lng], { icon }).addTo(map);
-            batchMarker.bindPopup(`バッチ ${index + 1}`).openPopup();
-
-            batchMarker.on('click', () => {
-                const distance = calculateDistance(previousLat, previousLng, item.lat, item.lng);
-                if (distance <= RADIUS) {
-                    alert(`バッチ ${index + 1} を捕獲しました！`);
-                    points += 10; 
-                    localStorage.setItem('points', points);
-                    updateDisplay();
-                } else {
-                    alert("バッチが遠すぎます。近づいてください！");
-                }
-            });
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            localStorage.removeItem('loggedIn');
+            alert("ログアウトしました。");
+            window.location.href = "quiz.html";
         });
-    }
 
-    function calculateDistance(lat1, lng1, lat2, lng2) {
-        const R = 6371; 
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLng = (lng2 - lng1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c * 1000; 
-    }
+        let batch = []; // バッチの情報を格納する配列
+        let map, marker;
+        let previousLat, previousLng;
+        let totalDistance = 0;
+        let points = 100; // 初期ポイント
+        const RADIUS = 20; // 捕獲の距離（メートル）
 
-    function initMap() {
-        navigator.geolocation.getCurrentPosition(position => {
+        // ポイントのローカルストレージ初期設定
+        if (localStorage.getItem('points') === null) {
+            localStorage.setItem('points', points);
+        } else {
+            points = parseFloat(localStorage.getItem('points'));
+        }
+
+        function updateDisplay() {
+            document.getElementById("txt").innerHTML = 
+                `累計移動距離: ${totalDistance.toFixed(2)} km<br>` +
+                `ポイント: ${points.toFixed(2)} pt`;
+        }
+
+        // バッチを地図上に配置する関数
+        function placeBatch() {
+            batch.forEach((item, index) => {
+                const icon = L.icon({
+                    iconUrl: item.img,
+                    iconSize: [60, 60]
+                });
+
+                const batchMarker = L.marker([item.lat, item.lng], { icon }).addTo(map);
+                batchMarker.bindPopup(`バッチ ${index + 1}`).openPopup();
+
+                batchMarker.on('click', () => {
+                    const distance = calculateDistance(previousLat, previousLng, item.lat, item.lng);
+                    if (distance <= RADIUS) {
+                        alert(`バッチ ${index + 1} を捕獲しました！`);
+                        points += 10; 
+                        localStorage.setItem('points', points);
+                        updateDisplay();
+                    } else {
+                        alert("バッチが遠すぎます。近づいてください！");
+                    }
+                });
+            });
+        }
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c * 1000; 
+        }
+
+        function initMap() {
+            navigator.geolocation.getCurrentPosition(position => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+
+                previousLat = lat;
+                previousLng = lng;
+
+                map = L.map("mapDiv").setView([lat, lng], 16);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+
+                marker = L.marker([lat, lng]).addTo(map);
+
+                document.getElementById("accuracyDiv").innerHTML = 
+                    `緯度: ${lat.toFixed(6)}<br>` +
+                    `経度: ${lng.toFixed(6)}<br>` +
+                    `誤差: ${accuracy.toFixed(2)} m`;
+
+                placeBatch();
+                navigator.geolocation.watchPosition(updatePosition);
+            }, () => {
+                alert("位置情報の取得に失敗しました。");
+            });
+        }
+
+        function updatePosition(position) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
+
+            const distance = calculateDistance(previousLat, previousLng, lat, lng);
+            totalDistance += distance / 1000; 
+            points += distance / 0.012; 
+            localStorage.setItem('points', points);
 
             previousLat = lat;
             previousLng = lng;
 
-            map = L.map("mapDiv").setView([lat, lng], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+            updateDisplay();
+            map.setView([lat, lng]);
+        }
 
-            marker = L.marker([lat, lng]).addTo(map);
+        function loadBatch() {
+            const req = new XMLHttpRequest();
+            req.addEventListener("readystatechange", () => {
+                if (req.readyState === 4 && req.status === 200) {
+                    batch = JSON.parse(req.responseText);
+                    placeBatch(); 
+                }
+            });
+            req.open("GET", "batch.json");
+            req.send();
+        }
 
-            document.getElementById("accuracyDiv").innerHTML = 
-                `緯度: ${lat.toFixed(6)}<br>` +
-                `経度: ${lng.toFixed(6)}<br>` +
-                `誤差: ${accuracy.toFixed(2)} m`;
-
-            placeBatch();
-            navigator.geolocation.watchPosition(updatePosition);
-        }, () => {
-            alert("位置情報の取得に失敗しました。");
-        });
-    }
-
-    function updatePosition(position) {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-
-        const distance = calculateDistance(previousLat, previousLng, lat, lng);
-        totalDistance += distance / 1000; 
-        points += distance / 0.012; 
-        localStorage.setItem('points', points);
-
-        previousLat = lat;
-        previousLng = lng;
-
+        loadBatch();
+        initMap();
         updateDisplay();
-        map.setView([lat, lng]);
-    }
 
-    function loadBatch() {
-        const req = new XMLHttpRequest();
-        req.addEventListener("readystatechange", () => {
-            if (req.readyState === 4 && req.status === 200) {
-                batch = JSON.parse(req.responseText);
-                placeBatch(); 
-            }
-        });
-        req.open("GET", "batch.json");
-        req.send();
-    }
-
-    loadBatch();
-    initMap();
-    updateDisplay();
-
-</script>
+    </script>
 </body>
 </html>
