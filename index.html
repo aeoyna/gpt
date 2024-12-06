@@ -24,6 +24,7 @@
 <p><a href="./gacha.html">>>ガチャを引く</a></p>
 <div id="mapDiv"></div><!--地図を置くdiv要素-->
 <div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
+<p><button id="logoutBtn">ログアウト</button></p>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
@@ -34,6 +35,13 @@
         alert("ログインが必要です。ログインページに移動します。");
         window.location.href = "quiz.html";
     }
+
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+        // ログアウト処理
+        localStorage.removeItem('loggedIn');
+        alert("ログアウトしました。");
+        window.location.href = "quiz.html";
+    });
 
     let batch = []; // バッチの情報を格納する配列
     let map, marker;
