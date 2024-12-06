@@ -12,7 +12,7 @@
 </head>
 <body>
     <h1>ログインするには金沢クイズに答えてください</h1>
-    <h2>5問中3問正解でログインできます</h2>
+    <h2>5問中5問正解でログインできます</h2>
     <div id="quiz-container"></div>
     <button id="submit" class="hidden">回答を確認</button>
     <button id="next" class="hidden">次へ</button>
@@ -113,7 +113,7 @@
                     quizContainer.innerHTML = '';
                     submitButton.classList.add('hidden');
                     nextButton.classList.add('hidden');
-                    if (score >= 3) {
+                    if (score >= 5) {
                         resultText.textContent = `おめでとうございます！ログインに成功しました。`;
                         localStorage.setItem('loggedIn', 'true'); // ログイン状態を保存
                         setTimeout(() => {
