@@ -11,12 +11,19 @@
     </style>
 </head>
 <body>
-    <h1>ログインするにはクイズに答えてください</h1>
+    <h1>ログインするには金沢クイズに答えてください</h1>
+    <h2>5問中3問正解でログインできます</h2>
     <div id="quiz-container"></div>
     <button id="submit" class="hidden">回答を確認</button>
     <p id="feedback" class="hidden"></p>
     <p id="result" class="hidden"></p>
     <script>
+        // ログイン状態の確認
+        if (localStorage.getItem('loggedIn')) {
+            alert("既にログイン済みです。メインページに移動します。");
+            window.location.href = "index.html"; // ログイン後のページ
+        }
+
         async function loadQuizData() {
             try {
                 const response = await fetch('quiz-data.json');
@@ -57,8 +64,7 @@
                             <input type="radio" name="answer" value="${optIndex}">
                             ${option}
                         </label><br>
-                    `).join('')}
-                `;
+                    `).join('')}`;
                 submitButton.textContent = currentQuestionIndex < numQuestions - 1 ? "回答を確認" : "最終結果を確認";
                 submitButton.classList.remove('hidden');
                 feedbackText.classList.add('hidden');
@@ -100,6 +106,7 @@
                         submitButton.classList.add('hidden');
                         if (score >= 3) {
                             resultText.textContent = `おめでとうございます！ログインに成功しました。`;
+                            localStorage.setItem('loggedIn', 'true'); // ログイン状態を保存
                             setTimeout(() => {
                                 window.location.href = "index.html"; // ログイン成功後の遷移
                             }, 2000);
