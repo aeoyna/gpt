@@ -27,132 +27,139 @@
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
+    // ログイン状態を確認
+    const isLoggedIn = localStorage.getItem('loggedIn');
+    if (!isLoggedIn) {
+        // ログイン状態でない場合、quiz.htmlにリダイレクト
+        alert("ログインが必要です。ログインページに移動します。");
+        window.location.href = "quiz.html";
+    }
 
-let batch = []; // バッチの情報を格納する配列
-let map, marker;
-let previousLat, previousLng;
-let totalDistance = 0;
-let points = 100; // 初期ポイント
-const RADIUS = 20; // 捕獲の距離（メートル）
+    let batch = []; // バッチの情報を格納する配列
+    let map, marker;
+    let previousLat, previousLng;
+    let totalDistance = 0;
+    let points = 100; // 初期ポイント
+    const RADIUS = 20; // 捕獲の距離（メートル）
 
-// ポイントのローカルストレージ初期設定
-if (localStorage.getItem('points') === null) {
-    localStorage.setItem('points', points);
-} else {
-    points = parseFloat(localStorage.getItem('points'));
-}
+    // ポイントのローカルストレージ初期設定
+    if (localStorage.getItem('points') === null) {
+        localStorage.setItem('points', points);
+    } else {
+        points = parseFloat(localStorage.getItem('points'));
+    }
 
-function updateDisplay() {
-    document.getElementById("txt").innerHTML = 
-        `累計移動距離: ${totalDistance.toFixed(2)} km<br>` +
-        `ポイント: ${points.toFixed(2)} pt`;
-}
+    function updateDisplay() {
+        document.getElementById("txt").innerHTML = 
+            `累計移動距離: ${totalDistance.toFixed(2)} km<br>` +
+            `ポイント: ${points.toFixed(2)} pt`;
+    }
 
-// バッチを地図上に配置する関数
-function placeBatch() {
-    batch.forEach((item, index) => {
-        const icon = L.icon({
-            iconUrl: item.img, // バッチ画像（.jpgも対応可能）
-            iconSize: [60, 60] // アイコンサイズ
+    // バッチを地図上に配置する関数
+    function placeBatch() {
+        batch.forEach((item, index) => {
+            const icon = L.icon({
+                iconUrl: item.img, // バッチ画像（.jpgも対応可能）
+                iconSize: [60, 60] // アイコンサイズ
+            });
+
+            const batchMarker = L.marker([item.lat, item.lng], { icon }).addTo(map);
+            batchMarker.bindPopup(`バッチ ${index + 1}`).openPopup();
+
+            // 捕獲判定
+            batchMarker.on('click', () => {
+                const distance = calculateDistance(previousLat, previousLng, item.lat, item.lng);
+                if (distance <= RADIUS) {
+                    alert(`バッチ ${index + 1} を捕獲しました！`);
+                    points += 10; // 捕獲時にポイント追加
+                    localStorage.setItem('points', points);
+                    updateDisplay();
+                } else {
+                    alert("バッチが遠すぎます。近づいてください！");
+                }
+            });
         });
+    }
 
-        const batchMarker = L.marker([item.lat, item.lng], { icon }).addTo(map);
-        batchMarker.bindPopup(`バッチ ${index + 1}`).openPopup();
+    // 距離計算関数 (緯度経度から距離を求める)
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371; // 地球の半径 (km)
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c * 1000; // 距離 (メートル)
+    }
 
-        // 捕獲判定
-        batchMarker.on('click', () => {
-            const distance = calculateDistance(previousLat, previousLng, item.lat, item.lng);
-            if (distance <= RADIUS) {
-                alert(`バッチ ${index + 1} を捕獲しました！`);
-                points += 10; // 捕獲時にポイント追加
-                localStorage.setItem('points', points);
-                updateDisplay();
-            } else {
-                alert("バッチが遠すぎます。近づいてください！");
-            }
+    // 地図初期設定と現在地の取得
+    function initMap() {
+        navigator.geolocation.getCurrentPosition(position => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            previousLat = lat;
+            previousLng = lng;
+
+            map = L.map("mapDiv").setView([lat, lng], 16);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // 現在位置マーカーの設定
+            marker = L.marker([lat, lng]).addTo(map);
+
+            // 緯度、経度、誤差を表示
+            document.getElementById("accuracyDiv").innerHTML = 
+                `緯度: ${lat.toFixed(6)}<br>` +
+                `経度: ${lng.toFixed(6)}<br>` +
+                `誤差: ${accuracy.toFixed(2)} m`;
+
+            // バッチを地図上に配置
+            placeBatch();
+
+            // 現在地の追跡
+            navigator.geolocation.watchPosition(updatePosition);
         });
-    });
-}
+    }
 
-// 距離計算関数 (緯度経度から距離を求める)
-function calculateDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371; // 地球の半径 (km)
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng / 2) * Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c * 1000; // 距離 (メートル)
-}
-
-// 地図初期設定と現在地の取得
-function initMap() {
-    navigator.geolocation.getCurrentPosition(position => {
+    // 位置更新処理
+    function updatePosition(position) {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
-        const accuracy = position.coords.accuracy;
+
+        const distance = calculateDistance(previousLat, previousLng, lat, lng);
+        totalDistance += distance / 1000; // キロメートルに変換
+        points += distance / 0.012; // 距離に応じてポイントを追加
+        localStorage.setItem('points', points);
 
         previousLat = lat;
         previousLng = lng;
 
-        map = L.map("mapDiv").setView([lat, lng], 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        updateDisplay();
+        map.setView([lat, lng]);
+    }
 
-        // 現在位置マーカーの設定
-        marker = L.marker([lat, lng]).addTo(map);
+    // バッチデータを読み込む関数
+    function loadBatch() {
+        const req = new XMLHttpRequest();
+        req.addEventListener("readystatechange", () => {
+            if (req.readyState === 4 && req.status === 200) {
+                batch = JSON.parse(req.responseText);
+                placeBatch(); 
+            }
+        });
+        req.open("GET", "batch.json");
+        req.send();
+    }
 
-        // 緯度、経度、誤差を表示
-        document.getElementById("accuracyDiv").innerHTML = 
-            `緯度: ${lat.toFixed(6)}<br>` +
-            `経度: ${lng.toFixed(6)}<br>` +
-            `誤差: ${accuracy.toFixed(2)} m`;
-
-        // バッチを地図上に配置
-        placeBatch();
-
-        // 現在地の追跡
-        navigator.geolocation.watchPosition(updatePosition);
-    });
-}
-
-// 位置更新処理
-function updatePosition(position) {
-    const lat = position.coords.latitude;
-    const lng = position.coords.longitude;
-
-    const distance = calculateDistance(previousLat, previousLng, lat, lng);
-    totalDistance += distance / 1000; // キロメートルに変換
-    points += distance / 0.012; // 距離に応じてポイントを追加
-    localStorage.setItem('points', points);
-
-    previousLat = lat;
-    previousLng = lng;
-
+    // 地図の初期化とデータの読み込みを実行
+    loadBatch();
+    initMap();
     updateDisplay();
-    map.setView([lat, lng]);
-}
-
-// バッチデータを読み込む関数
-function loadBatch() {
-    const req = new XMLHttpRequest();
-    req.addEventListener("readystatechange", () => {
-        if (req.readyState === 4 && req.status === 200) {
-            batch = JSON.parse(req.responseText);
-            placeBatch(); 
-        }
-    });
-    req.open("GET", "batch.json");
-    req.send();
-}
-
-// 地図の初期化とデータの読み込みを実行
-loadBatch();
-initMap();
-updateDisplay();
 
 </script>
 </body>
