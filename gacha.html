@@ -39,7 +39,6 @@
         cursor: pointer;
     }
 
-    /* 下部の赤い「閉じる」ボタン */
     .close-button {
         display: inline-block;
         margin-top: 20px;
@@ -54,6 +53,18 @@
 
     .close-button:hover {
         background-color: darkred;
+    }
+
+    /* 履歴セクション */
+    #history {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+    }
+
+    #history div {
+        margin: 5px 0;
     }
 </style>
 </head>
@@ -70,17 +81,28 @@
                 <source src="" type="video/mp4">
                 お使いのブラウザは動画タグをサポートしていません。
             </video>
-            <!-- 赤色の「閉じる」ボタン -->
             <button class="close-button" onclick="closeModal()">閉じる</button>
         </div>
     </div>
 
     <div id="result"></div>
 
+    <!-- 履歴セクション -->
+    <div id="history">
+        <h3>ガチャ履歴</h3>
+    </div>
+
 <script>
 // ローカルストレージからポイントを取得して表示
 let points = parseFloat(localStorage.getItem('points') || '0');
 document.getElementById("points").innerText = points.toFixed(2);
+
+// 履歴をローカルストレージから復元
+const historyDiv = document.getElementById("history");
+const storedHistory = JSON.parse(localStorage.getItem('gachaHistory') || '[]');
+storedHistory.forEach(entry => {
+    addHistoryEntry(entry);
+});
 
 // ガチャを引く関数
 function playGacha() {
@@ -89,29 +111,44 @@ function playGacha() {
         return;
     }
 
-    // ポイントを10消費し、保存
     points -= 10;
     localStorage.setItem('points', points.toFixed(2));
     document.getElementById("points").innerText = points.toFixed(2);
 
-    // ガチャの結果判定
     const rand = Math.random() * 100;
     const videoPlayer = document.getElementById("videoPlayer");
     const modal = document.getElementById("modal");
 
-    // モーダルを表示
+    let result;
     modal.style.display = "flex";
 
     if (rand < 1) {
         videoPlayer.src = "ex.mp4";
+        result = "大当たり";
     } else if (rand < 20) {
         videoPlayer.src = "lose.mp4";
+        result = "ハズレ";
     } else {
         videoPlayer.src = "win.mp4";
+        result = "あたり";
     }
 
     videoPlayer.load();
     videoPlayer.play();
+
+    const timestamp = new Date().toLocaleString("ja-JP");
+    const entry = `${timestamp}　${result}`;
+    addHistoryEntry(entry);
+
+    storedHistory.push(entry);
+    localStorage.setItem('gachaHistory', JSON.stringify(storedHistory));
+}
+
+// 履歴エントリを追加する関数
+function addHistoryEntry(entry) {
+    const div = document.createElement("div");
+    div.textContent = entry;
+    historyDiv.appendChild(div);
 }
 
 // モーダルを閉じる関数
@@ -119,7 +156,6 @@ function closeModal() {
     const modal = document.getElementById("modal");
     const videoPlayer = document.getElementById("videoPlayer");
 
-    // モーダルを非表示にし、動画を停止
     modal.style.display = "none";
     videoPlayer.pause();
     videoPlayer.currentTime = 0;
