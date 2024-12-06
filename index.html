@@ -25,6 +25,7 @@
 <div id="mapDiv"></div><!--地図を置くdiv要素-->
 <div id="accuracyDiv">緯度:<br>経度:<br>誤差:</div>
 <p><button id="logoutBtn">ログアウト</button></p>
+<p><button id="resetLoginBtn">ログイン状態をリセット</button></p>
 
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
@@ -40,6 +41,13 @@
         // ログアウト処理
         localStorage.removeItem('loggedIn');
         alert("ログアウトしました。");
+        window.location.href = "quiz.html";
+    });
+
+    document.getElementById("resetLoginBtn").addEventListener("click", () => {
+        // ログイン状態をリセット
+        localStorage.removeItem('loggedIn');
+        alert("ログイン状態をリセットしました。ログインページに移動します。");
         window.location.href = "quiz.html";
     });
 
