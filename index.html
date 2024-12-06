@@ -15,11 +15,24 @@
         border-radius: 5px;
         font-size: 14px;
     }
+    #infoDiv {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 14px;
+    }
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
 </head>
 
 <body>
+<div id="infoDiv">
+    <div>累計移動距離: <span id="totalDistance">0.00</span> km</div>
+    <div>ポイント: <span id="points">100.00</span> pt</div>
+</div>
 <div id="txt">ここにデータを表示</div>
 <p><a href="./gacha.html">>>ガチャを引く</a></p>
 <p><button id="logoutBtn">ログアウト</button></p>
@@ -56,9 +69,8 @@
     }
 
     function updateDisplay() {
-        document.getElementById("txt").innerHTML = 
-            `累計移動距離: ${totalDistance.toFixed(2)} km<br>` +
-            `ポイント: ${points.toFixed(2)} pt`;
+        document.getElementById("totalDistance").innerText = totalDistance.toFixed(2);
+        document.getElementById("points").innerText = points.toFixed(2);
     }
 
     // バッチを地図上に配置する関数
