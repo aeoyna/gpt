@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ログインクイズ</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .hidden { display: none; }
+        button { padding: 10px 20px; }
+    </style>
+</head>
+<body>
+    <h1>ログインするにはクイズに答えてください</h1>
+    <div id="quiz-container"></div>
+    <button id="submit" class="hidden">回答を確認</button>
+    <p id="feedback" class="hidden"></p>
+    <p id="result" class="hidden"></p>
+    <script>
+        async function loadQuizData() {
+            try {
+                const response = await fetch('quiz-data.json');
+                if (!response.ok) {
+                    throw new Error('データの読み込みに失敗しました');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(error);
+                return [];
+            }
+        }
+
+        function getRandomQuestions(quizData, numQuestions) {
+            const shuffled = quizData.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, numQuestions);
+        }
+
+        (async function () {
+            const quizData = await loadQuizData();
+            const quizContainer = document.getElementById('quiz-container');
+            const submitButton = document.getElementById('submit');
+            const feedbackText = document.getElementById('feedback');
+            const resultText = document.getElementById('result');
+
+            let score = 0;
+            const numQuestions = 5; // 出題する問題数
+            const randomQuestions = getRandomQuestions(quizData, numQuestions);
+            let currentQuestionIndex = 0;
+
+            function showQuestion() {
+                // 現在の問題を表示
+                const question = randomQuestions[currentQuestionIndex];
+                quizContainer.innerHTML = `
+                    <p>${currentQuestionIndex + 1}. ${question.q}</p>
+                    ${question.options.map((option, optIndex) => `
+                        <label>
+                            <input type="radio" name="answer" value="${optIndex}">
+                            ${option}
+                        </label><br>
+                    `).join('')}
+                `;
+                submitButton.textContent = currentQuestionIndex < numQuestions - 1 ? "回答を確認" : "最終結果を確認";
+                submitButton.classList.remove('hidden');
+                feedbackText.classList.add('hidden');
+            }
+
+            function checkAnswer() {
+                const answer = document.querySelector('input[name="answer"]:checked');
+                if (!answer) {
+                    feedbackText.textContent = "回答を選んでください。";
+                    feedbackText.classList.remove('hidden');
+                    return false;
+                }
+                const isCorrect = parseInt(answer.value) === randomQuestions[currentQuestionIndex].a;
+                if (isCorrect) {
+                    score++;
+                    feedbackText.textContent = "正解！丸⭕️です。";
+                } else {
+                    feedbackText.textContent = `不正解！バツ❌です。正解は「${randomQuestions[currentQuestionIndex].options[randomQuestions[currentQuestionIndex].a]}」です。`;
+                }
+                feedbackText.classList.remove('hidden');
+                return true;
+            }
+
+            // 最初の問題を表示
+            showQuestion();
+
+            // ボタンのクリックイベント
+            submitButton.addEventListener('click', () => {
+                if (checkAnswer()) {
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < numQuestions) {
+                        // 次の問題を表示
+                        setTimeout(() => {
+                            showQuestion();
+                        }, 2000);
+                    } else {
+                        // クイズ終了
+                        quizContainer.innerHTML = '';
+                        submitButton.classList.add('hidden');
+                        if (score >= 3) {
+                            resultText.textContent = `おめでとうございます！ログインに成功しました。`;
+                            setTimeout(() => {
+                                window.location.href = "index.html"; // ログイン成功後の遷移
+                            }, 2000);
+                        } else {
+                            resultText.textContent = `残念！もう一度挑戦してください。正解数: ${score}/${numQuestions}`;
+                        }
+                        resultText.classList.remove('hidden');
+                    }
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
